@@ -6,6 +6,18 @@ A small native macOS app for scanning documents directly from a local eSCL scann
 
 The interface is currently in Russian. Built with SwiftUI, AppKit and PDFKit, with no third-party runtime dependencies.
 
+## Screenshots
+
+**A real handwritten sample, scanned in color at 300 dpi on an HP LaserJet MFP M141w.**
+
+<img src="Assets/Screenshots/handwritten-scan.png" width="1000" alt="Local Scan displaying a real handwritten Hello, World! sample in blue ink, with PDF preview and scan settings">
+
+**Ready to scan:** color, quality and scan area in one window.
+
+<img src="Assets/Screenshots/ready-to-scan.png" width="1000" alt="Local Scan ready screen with color scanning, 300 dpi quality and A4 area selected">
+
+Screenshots use the native app window with an actual scanned sample. Connection details are illustrative demo values; no personal documents or real network settings are shown.
+
 ## Download and use
 
 Download the Apple Silicon app from [Releases](https://github.com/Marcus-Rise/local-scan/releases). Unzip it and move `Local Scan.app` to Applications.
