@@ -20,7 +20,7 @@ Screenshots use the native app window with an actual scanned sample. Connection 
 
 ## Download and use
 
-Download the Apple Silicon app from [Releases](https://github.com/Marcus-Rise/local-scan/releases). Unzip it and move `Local Scan.app` to Applications.
+Download the installer for your Mac from [Releases](https://github.com/Marcus-Rise/local-scan/releases). Automated releases provide `Local-Scan-vX.Y.Z-macOS-arm64.dmg` (Apple Silicon) and `Local-Scan-vX.Y.Z-macOS-x86_64.dmg` (Intel). Open the DMG and drag `LocalScan.app` to Applications. The existing v1.0.0 release is Apple Silicon-only: unzip its archive and move `Local Scan.app` to Applications.
 
 1. Open **Принтеры → Добавить** and click **Добавить** next to a discovered scanner, or use **Добавить по IP-адресу**. Saved printers have separate actions to select, edit their name/address and delete them.
 2. Confirm pairing with your printer in your trusted home network. The app shows the SHA-256 certificate fingerprint and remembers it.
@@ -33,7 +33,7 @@ Allow Local Scan to access your local network when macOS asks. If discovery or c
 
 ## Compatibility
 
-- **macOS 14 or newer, Apple Silicon.** This release does not include an Intel build.
+- **macOS 14 or newer.** The automated release workflow builds separate Apple Silicon (`arm64`) and Intel (`x86_64`) installers. Intel support is not physically tested. The existing v1.0.0 release is Apple Silicon-only.
 - Physically tested with **HP LaserJet MFP M141w**: color at 300 dpi, A4, multipage assembly, rotation and saved PDF verification.
 - Other devices are **unverified**. They must expose HTTPS eSCL at `/eSCL/`, support flatbed scanning, RGB24/Grayscale8 and PDF output. Scan areas and the offered resolutions currently follow the tested device; capabilities are not fully negotiated.
 - Bonjour discovery lists HTTPS eSCL scanners advertising `_uscans._tcp` on port 443 with a private IPv4 address. Manual IPv4 setup remains available. There is no automatic IP migration, feeder support or iPhone/iPad version.
@@ -57,7 +57,17 @@ Install Xcode Command Line Tools, then:
 ./build.sh
 ```
 
-The ad-hoc signed app is written to `dist/Local Scan.app`. An optional first argument selects another output path. The script compiles for `arm64-apple-macosx14.0`.
+The ad-hoc signed app is written to `dist/Local Scan.app`. An optional first argument selects another output path. The default target is `arm64-apple-macosx14.0`; use `TARGET_ARCH=x86_64 ./build.sh` for Intel. Tests support the same `TARGET_ARCH` environment variable.
+
+## Automated macOS builds and releases
+
+The GitHub Actions workflow runs the existing `test.sh` and `build.sh` on macOS runners for both `arm64` and `x86_64`. It uses existing third-party actions to create DMG installers, upload build artifacts and publish GitHub Releases with SHA-256 checksums. No new packaging scripts or Apple Developer account are needed.
+
+- **Pull requests and manual runs:** build, test, verify the ad-hoc signature and upload both DMGs as workflow artifacts. They do not publish a release.
+- **Pushing a `vX.Y.Z` tag:** build and test both architectures first; only then publish a GitHub Release with both DMGs plus `checksums.sha256` and `checksums.json`.
+- Keep the app version in `build.sh` (`CFBundleShortVersionString`) aligned with the release tag before tagging. The CI does not rewrite app metadata.
+
+The `.app` bundles are **ad-hoc signed, not Developer ID signed or notarized**. Gatekeeper can still require a one-time manual approval on first launch. The workflow does not bypass macOS protections.
 
 ## Tests
 

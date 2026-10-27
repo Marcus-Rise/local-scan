@@ -2,8 +2,9 @@
 set -eu
 cd "${0:A:h}"
 APP="${1:-dist/Local Scan.app}"
+TARGET_ARCH="${TARGET_ARCH:-arm64}"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-xcrun swiftc -O -target arm64-apple-macosx14.0 -module-cache-path .build-cache Sources/ScannerCore.swift Sources/PrinterDiscovery.swift Sources/PrinterStore.swift Sources/PrinterManager.swift Sources/LocalScan.swift -o "$APP/Contents/MacOS/LocalScan"
+xcrun swiftc -O -target "${TARGET_ARCH}-apple-macosx14.0" -module-cache-path .build-cache Sources/ScannerCore.swift Sources/PrinterDiscovery.swift Sources/PrinterStore.swift Sources/PrinterManager.swift Sources/LocalScan.swift -o "$APP/Contents/MacOS/LocalScan"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
