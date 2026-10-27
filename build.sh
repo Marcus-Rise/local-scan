@@ -3,7 +3,7 @@ set -eu
 cd "${0:A:h}"
 APP="${1:-dist/Local Scan.app}"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-xcrun swiftc -O -target arm64-apple-macosx14.0 -module-cache-path .build-cache Sources/ScannerCore.swift Sources/LocalScan.swift -o "$APP/Contents/MacOS/LocalScan"
+xcrun swiftc -O -target arm64-apple-macosx14.0 -module-cache-path .build-cache Sources/ScannerCore.swift Sources/PrinterDiscovery.swift Sources/PrinterStore.swift Sources/PrinterManager.swift Sources/LocalScan.swift -o "$APP/Contents/MacOS/LocalScan"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -15,11 +15,12 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDevelopmentRegion</key><string>ru</string>
 <key>CFBundleLocalizations</key><array><string>ru</string></array>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.0.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>1.1.0</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSBonjourServices</key><array><string>_uscans._tcp</string></array>
 <key>NSLocalNetworkUsageDescription</key><string>Сканирование документов напрямую со сканера в домашней сети.</string>
 <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>

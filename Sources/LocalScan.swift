@@ -20,6 +20,8 @@ enum AppArtwork {
     @Published var dirty = false
     @Published var savedURL: URL?
     @Published var selectedPage = 0
+    @Published var connectionError: String?
+    @Published var connectionAddress = ""
     var task: Task<Void, Never>?
     weak var pdfView: PDFView?
     var pageCount: Int { document.pageCount }
@@ -27,24 +29,28 @@ enum AppArtwork {
     var fingerprint: String? {
         (UserDefaults.standard.dictionary(forKey: "printerCertificates") as? [String: String])?[address]
     }
-    func forgetCertificate() {
+    func forgetCertificate(for target: String? = nil) {
+        let targetAddress = target ?? address
         var pins = UserDefaults.standard.dictionary(forKey: "printerCertificates") as? [String: String] ?? [:]
-        pins.removeValue(forKey: address)
+        pins.removeValue(forKey: targetAddress)
         UserDefaults.standard.set(pins, forKey: "printerCertificates")
-        online = false
+        if targetAddress == address { online = false }
     }
 
-    func check() {
+    func check(targetAddress requestedAddress: String? = nil) {
         guard !busy && !checking else { return }
         checking = true
         online = false
-        let targetAddress = address
+        let targetAddress = requestedAddress ?? address
+        connectionAddress = targetAddress
+        connectionError = nil
+        status = "Подключение к принтеру…"
         Task {
             defer { checking = false }
             do {
-                var pin = fingerprint
+                var pin = (UserDefaults.standard.dictionary(forKey: "printerCertificates") as? [String: String])?[targetAddress]
                 if pin == nil {
-                    let probe = try ScannerClient(address: targetAddress)
+                    let probe = try ScannerClient(address: targetAddress, requestTimeout: 12)
                     let observed = try await probe.observedFingerprint()
                     let alert = NSAlert()
                     alert.messageText = "Подключить этот принтер?"
@@ -59,15 +65,14 @@ enum AppArtwork {
                     UserDefaults.standard.set(pins, forKey: "printerCertificates")
                     pin = observed
                 }
-                let client = try ScannerClient(address: targetAddress, fingerprint: pin)
-                let name = try await client.check()
-                UserDefaults.standard.set(name, forKey: "printerName")
+                let client = try ScannerClient(address: targetAddress, fingerprint: pin, requestTimeout: 12)
+                _ = try await client.check()
                 online = true
                 status = "Готов к сканированию"
             } catch {
                 online = false
                 status = "Принтер недоступен"
-                self.error = error.localizedDescription
+                connectionError = error.localizedDescription
             }
         }
     }
@@ -225,7 +230,7 @@ struct ScanWindow: View {
     @AppStorage("scanDPI") private var dpi = 300
     @AppStorage("fullGlass") private var fullGlass = false
     @State private var editingPrinter = false
-    @State private var draftAddress = ""
+    @StateObject private var printerStore = PrinterStore()
     var body: some View {
         HSplitView {
             VStack(alignment: .leading, spacing: 22) {
@@ -238,8 +243,9 @@ struct ScanWindow: View {
                         Circle().fill(model.online ? Color.green : Color.gray).frame(width: 7, height: 7)
                         Text(model.online ? "Подключён · \(address)" : (address.isEmpty ? "Принтер не выбран" : address)).font(.caption).foregroundStyle(.secondary)
                     }
-                    Button("Настроить принтер…") { draftAddress = address; editingPrinter = true }.buttonStyle(.link).font(.caption)
-                        .disabled(model.busy || model.checking)
+                    Button { editingPrinter = true } label: {
+                        Label("Принтеры", systemImage: "printer").frame(maxWidth: .infinity).padding(.vertical, 5)
+                    }.controlSize(.large).disabled(model.busy)
                 }
                 Divider()
                 VStack(alignment: .leading, spacing: 10) {
@@ -328,27 +334,11 @@ struct ScanWindow: View {
         .frame(minWidth: 820, minHeight: 640)
         .tint(Color(red: 0.12, green: 0.48, blue: 0.57))
         .onAppear {
-            if ScanValidation.baseURL(address) == nil { draftAddress = address; editingPrinter = true; model.status = "Подключите принтер" }
+            if ScanValidation.baseURL(address) == nil { editingPrinter = true; model.status = "Подключите принтер" }
             else { model.check() }
         }
         .sheet(isPresented: $editingPrinter) {
-            VStack(alignment: .leading, spacing: 18) {
-                Text("Ваш принтер").font(.title2.bold())
-                Text(name).foregroundStyle(.secondary)
-                TextField("Локальный IP-адрес", text: $draftAddress).textFieldStyle(.roundedBorder)
-                Text("Укажите адрес сканера в домашней сети. После подключения адрес и сертификат сохранятся между запусками.")
-                    .font(.caption).foregroundStyle(.secondary)
-                HStack {
-                    Button("Сбросить привязку") { model.forgetCertificate() }.disabled(model.fingerprint == nil)
-                    Spacer()
-                    Button("Отмена") { editingPrinter = false }.keyboardShortcut(.cancelAction)
-                    Button("Подключить") {
-                        address = ScanValidation.baseURL(draftAddress.trimmingCharacters(in: .whitespacesAndNewlines))?.host ?? ""
-                        editingPrinter = false; model.check()
-                    }.keyboardShortcut(.defaultAction)
-                        .disabled(ScanValidation.baseURL(draftAddress.trimmingCharacters(in: .whitespacesAndNewlines)) == nil)
-                }
-            }.padding(26).frame(width: 390)
+            PrinterManager(model: model, store: printerStore)
         }
         .alert("Не удалось выполнить действие", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("Понятно") { model.error = nil }
