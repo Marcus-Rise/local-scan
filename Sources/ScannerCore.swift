@@ -98,14 +98,14 @@ actor ScannerClient {
     let base: URL
     let session: URLSession
     let trust: PrinterTrust
-    init(address: String, fingerprint: String? = nil) throws {
+    init(address: String, fingerprint: String? = nil, requestTimeout: TimeInterval = 100) throws {
         guard let url = ScanValidation.baseURL(address) else {
             throw ScanFailure(message: "Укажите локальный IP принтера, например 192.168.1.50.")
         }
         base = url
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 100
-        configuration.timeoutIntervalForResource = 180
+        configuration.timeoutIntervalForRequest = requestTimeout
+        configuration.timeoutIntervalForResource = requestTimeout == 100 ? 180 : requestTimeout
         configuration.urlCache = nil
         configuration.httpCookieStorage = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -114,10 +114,15 @@ actor ScannerClient {
     }
     // Probe stops at the TLS challenge: no HTTP response is accepted before pairing.
     func observedFingerprint() async throws -> String {
-        _ = try? await session.data(from: base.appendingPathComponent("ScannerCapabilities"))
+        var probeError: Error?
+        do { _ = try await session.data(from: base.appendingPathComponent("ScannerCapabilities")) }
+        catch { probeError = error }
         try Task.checkCancellation()
         guard let fingerprint = trust.observedFingerprint else {
-            throw ScanFailure(message: "Не удалось получить сертификат принтера. Проверьте IP, питание и доступность HTTPS.")
+            if let error = probeError as? URLError, error.code == .notConnectedToInternet {
+                throw ScanFailure(message: "Нет доступа к принтеру в локальной сети. Проверьте разрешение для Local Scan: Системные настройки → Конфиденциальность и безопасность → Локальная сеть.")
+            }
+            throw ScanFailure(message: "Не удалось подключиться к \(base.host ?? ""). \(probeError?.localizedDescription ?? "Сертификат не получен.")")
         }
         return fingerprint
     }

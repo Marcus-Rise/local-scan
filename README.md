@@ -22,19 +22,21 @@ Screenshots use the native app window with an actual scanned sample. Connection 
 
 Download the Apple Silicon app from [Releases](https://github.com/Marcus-Rise/local-scan/releases). Unzip it and move `Local Scan.app` to Applications.
 
-1. Open the app and enter your scanner's private IPv4 address.
+1. Open **Принтеры → Добавить** and click **Добавить** next to a discovered scanner, or use **Добавить по IP-адресу**. Saved printers have separate actions to select, edit their name/address and delete them.
 2. Confirm pairing with your printer in your trusted home network. The app shows the SHA-256 certificate fingerprint and remembers it.
 3. Put a document face down on the flatbed and click **Сканировать**.
 4. For more pages, replace the sheet and click **Добавить страницу**. Click **Сохранить PDF…** to save.
 
 The app remembers the address and scan settings. Color at 300 dpi and A4 are the defaults. You can select grayscale, 200/300/600 dpi, use the full glass, rotate or delete a selected page, and save multiple pages in one PDF. Unsaved changes trigger a save prompt before closing.
 
+Allow Local Scan to access your local network when macOS asks. If discovery or connection is blocked, check **System Settings → Privacy & Security → Local Network → Local Scan**, then retry **Проверить связь** in the printer list.
+
 ## Compatibility
 
 - **macOS 14 or newer, Apple Silicon.** This release does not include an Intel build.
 - Physically tested with **HP LaserJet MFP M141w**: color at 300 dpi, A4, multipage assembly, rotation and saved PDF verification.
 - Other devices are **unverified**. They must expose HTTPS eSCL at `/eSCL/`, support flatbed scanning, RGB24/Grayscale8 and PDF output. Scan areas and the offered resolutions currently follow the tested device; capabilities are not fully negotiated.
-- Manual IPv4 setup only. There is no Bonjour discovery, automatic IP migration, feeder support or iPhone/iPad version.
+- Bonjour discovery lists HTTPS eSCL scanners advertising `_uscans._tcp` on port 443 with a private IPv4 address. Manual IPv4 setup remains available. There is no automatic IP migration, feeder support or iPhone/iPad version.
 - Scanning needs network reachability to the printer. The app cannot repair Wi-Fi authentication or router isolation.
 
 The downloadable build is ad-hoc signed, without Apple Developer ID or notarization. macOS may require approval to open it. You can also build the app from source.
@@ -43,7 +45,7 @@ The downloadable build is ad-hoc signed, without Apple Developer ID or notarizat
 
 Documents are retrieved directly from the printer over HTTPS, held in memory, and saved to the path you choose. The app has no analytics, remote service, HP login or administrator-password storage. The source repository contains no scanned documents or preconfigured printer identity.
 
-Initial pairing uses **trust on first use**: the app cannot independently authenticate an unknown printer. Pair only with a device you recognize on a trusted local network; compare the certificate fingerprint with the device's certificate information where available. Once paired, only that certificate is accepted for the saved address. A changed certificate is blocked. Re-pair through **Настроить принтер… → Сбросить привязку** only after checking the device.
+Initial pairing uses **trust on first use**: the app cannot independently authenticate an unknown printer. Pair only with a device you recognize on a trusted local network; compare the certificate fingerprint with the device's certificate information where available. Once paired, only that certificate is accepted for the saved address. A changed certificate is blocked. Re-pair through **Принтеры → Изменить → Сбросить привязку** only after checking the device.
 
 Public, loopback and non-IPv4 addresses are rejected. Redirects are rejected, and job URLs must stay on the paired device. Address, certificate fingerprint and scan preferences are stored in macOS UserDefaults. If the printer's IP changes, enter its new address and pair again.
 
@@ -67,7 +69,7 @@ On an Apple Silicon Mac:
 ./test.sh /path/to/scan.pdf
 ```
 
-Tests cover color defaults, eSCL XML namespaces and physical scan area, accepted settings, private addresses, certificate matching, job URL confinement and PDF validation. One intentionally invalid PDF can produce a CoreGraphics diagnostic.
+Tests cover color defaults, eSCL XML namespaces and physical scan area, accepted settings, private addresses, certificate matching, job URL confinement and PDF validation. Printer-library tests cover migration, add/edit/delete, duplicate rejection, persistence, selection and certificate isolation when an address changes. One intentionally invalid PDF can produce a CoreGraphics diagnostic.
 
 An opt-in live probe **runs a physical scan** and writes the result locally:
 
