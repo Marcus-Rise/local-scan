@@ -1,0 +1,86 @@
+name: macOS build and release
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+env:
+  ARTIFACT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'snapshot' }}
+
+concurrency:
+  group: macos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    env:
+      TARGET_ARCH: ${{ matrix.arch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run Swift tests
+        run: ./test.sh
+
+      - name: Build ad-hoc signed app
+        run: ./build.sh dist/LocalScan.app
+
+      - name: Verify code signature
+        run: codesign --verify --deep --strict --verbose=2 dist/LocalScan.app
+
+      - name: Package drag-and-drop DMG
+        uses: L-Super/create-dmg-actions@8c59360de7ec731bfa03ce3bd2ad5ae650169864 # v1
+        with:
+          src_dir: dist/LocalScan.app
+          dmg_name: Local-Scan-${{ env.ARTIFACT_VERSION }}-macOS-${{ matrix.arch }}
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-scan-macos-${{ matrix.arch }}
+          path: Local-Scan-${{ env.ARTIFACT_VERSION }}-macOS-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download both DMGs
+        uses: actions/download-artifact@v6
+        with:
+          pattern: local-scan-macos-*
+          path: release
+          merge-multiple: true
+
+      - name: Publish release with SHA-256 checksums
+        uses: ghalactic/github-release-from-tag@v6
+        with:
+          assets: |
+            - path: release/*.dmg
+          generateReleaseNotes: 'true'
